@@ -30,11 +30,11 @@ str(predict)
 From the inspection of the datasets, the following observations were made
 1. Both datasets have 160 variables
 2. Training dataset (19622 rows) is the training set by which we will need to use to train the model. The outcome,"classe" is the last variable
-3. Testing dataset (20 rows) is one which we will use to predict the outcome.
-4. The testing dataset has many rows which has NA data. As such variables are not available for machine learning, we will use the testing dataset to remove all the non-relevant columns and apply that to the training dataset as well. In this way both dataset will have the same set of variables.
+3. Predict dataset (20 rows) is one which we will use to predict the outcome.
+4. The *predict* dataset has many rows which has NA data. As such variables are not available for machine learning, we will use the *predict* dataset to remove all the non-relevant columns and apply that to the training dataset as well. In this way both datasets will have the same set of variables.
 
 ## Data Cleaning and Exploratory Analysis
-The following set of codes serve to check for NA fields in all of testing dataset. It will remove all those columns that has NA present. The operations also remove the first 7 columns of the dataset as these are timing and descriptive variables not related to the question at hand.
+The following chunk of code serves to check for NA fields in all of testing dataset. It will remove all those columns that has NA present. The operations also remove the first 7 columns of the dataset as these are timing and descriptive variables or termed as "book-keeping" columns not related to the question at hand.
 ```{r Data Cleaning and feature selection}
 x <- is.na(predict)              ##  Checking for existence of NA
 y <- as.logical(apply(x,2,sum))    ##  Count No of NAs in a column
@@ -43,10 +43,10 @@ training1 <- training1[,-1:-7]     ##  Remove the first 7 column of the training
 predictSP <- predict[,!y]          ##  Remove all columns with NAs present
 predictSP <- predictSP[,-1:-7]     ##  Remove the first 7 column of the predict dataset
 ```
-After remove the non-relevant columns, it is noted that we have reduced the number of vaiables from 160 to 53 (including the outcome). This will make our machine learning much faster
+After remove the non-relevant columns, it is noted that we have reduced the number of vaiables from 160 to 53 (including the outcome). This will make our machine learning process much faster
 
 ## Partition the training set to training and tune
-Next we partition the training set to 2 subsets in the ration of 70/30. One for the training and another to verify that the model is accurate before we apply it for the prediction in the testing set.
+Next we partition the training set to 2 subsets in the ration of 70/30. One for the training and another to test that the model is accurate before we apply it for the prediction in the predict set
 ```{r, Partitioning}
 set.seed(1960)
 trainIndex <- createDataPartition(training1$classe, p = 0.70,list=FALSE)
@@ -56,7 +56,7 @@ testSP  <-  training1[-trainIndex,]
 
 ## Machine Learning
 #### Using Random Forest
-Ramdom Forest is tried first as it is one of the best machine learning algorithms. However the caret package is not used as the training time is too long and the amount of resources (memories) is too much for my computer of 2GB RAM. Instead I opted to use the standard randomForest function which is much faster and can accomodate my limited resources. A forest of 400 trees and 4 variables is first teste
+Random Forest is tried first as it is one of the best machine learning algorithms. However the caret package is not used as the training time is too long and the amount of resources (memories) is too much for my computer of 2GB RAM. Instead I opted to use the standard randomForest function which is much faster and can accomodate my limited resources. A forest of 400 trees and 4 variables is first used.
 ```{r RandomTrees}
 rf <- randomForest(classe~.,data=trainSP,mtry=4,ntree=400)
 confusionMatrix(testSP$classe,predict(rf,testSP))
@@ -80,7 +80,7 @@ plot(rf$err.rate[,1], type = "l", lwd = 3, col = "blue",
      main = "Random Forest: OOB estimate of error rate",
      xlab = "Number of Trees", ylab = "OOB error rate")
 ```
-From the plot above, it is noted that the error rates stabilises from about 100 tress onwards. To be safe and saving time, we will select 200 trees to use
+From the plot above, it is noted that the error rates stabilises from about 100 trees onwards. To be safe and saving time, we will select 200 trees to use
 
 #### Tuning mtry
 We will test the number of mtry to use based on 200 trees
@@ -118,4 +118,6 @@ pml_write_files = function(x){
 }
 pml_write_files(predictRES)
 ```
+The output from the function call will be used for submission in the 2nd part of the project exercise.
 
+## The End
