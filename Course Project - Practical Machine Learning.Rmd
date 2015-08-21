@@ -1,0 +1,121 @@
+---
+title: "Course Project - Practical Machine Learning"
+author: "PowLook Yap"
+date: "August 23, 2015"
+output: html_document
+---
+## Project Overview
+This project looks at the activities of a group of users as they use their wearable devices to perform a set of activities. The purpose of this exercise will be to learn from the activities they have done and therefore to predict what activities they are doing given a set of data. The information about this experiment and dataset are available from the following website : http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+## Data download and Preparatione
+The dataset (2 sets) are downloaded from the site as given below.
+They are then read into R as training and testing sets. The structure of both the datasets are also displayed to check for any peculiarities.
+
+```{r download dataset}
+suppressWarnings(library(caret))
+suppressWarnings(library(dplyr))
+suppressWarnings(library(randomForest))
+setwd("D:/Coursera - Data Science/8. Practical Machine Learning/Assignments")
+## Reading of dataset
+setwd("D:/Coursera - Data Science/8. Practical Machine Learning/Assignments")
+## trainURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+##download.file(trainURL,"pml-training.csv")
+training <- read.csv("pml-training.csv")
+##testURL  <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+##download.file(testURL,"pml-testing.csv")
+predict <- read.csv("pml-testing.csv")
+str(training)
+str(predict)
+```
+From the inspection of the datasets, the following observations were made
+1. Both datasets have 160 variables
+2. Training dataset (19622 rows) is the training set by which we will need to use to train the model. The outcome,"classe" is the last variable
+3. Testing dataset (20 rows) is one which we will use to predict the outcome.
+4. The testing dataset has many rows which has NA data. As such variables are not available for machine learning, we will use the testing dataset to remove all the non-relevant columns and apply that to the training dataset as well. In this way both dataset will have the same set of variables.
+
+## Data Cleaning and Exploratory Analysis
+The following set of codes serve to check for NA fields in all of testing dataset. It will remove all those columns that has NA present. The operations also remove the first 7 columns of the dataset as these are timing and descriptive variables not related to the question at hand.
+```{r Data Cleaning and feature selection}
+x <- is.na(predict)              ##  Checking for existence of NA
+y <- as.logical(apply(x,2,sum))    ##  Count No of NAs in a column
+training1 <- training[,!y]         ##  Remove all columns with NAs present
+training1 <- training1[,-1:-7]     ##  Remove the first 7 column of the training dataset 
+predictSP <- predict[,!y]          ##  Remove all columns with NAs present
+predictSP <- predictSP[,-1:-7]     ##  Remove the first 7 column of the predict dataset
+```
+After remove the non-relevant columns, it is noted that we have reduced the number of vaiables from 160 to 53 (including the outcome). This will make our machine learning much faster
+
+## Partition the training set to training and tune
+Next we partition the training set to 2 subsets in the ration of 70/30. One for the training and another to verify that the model is accurate before we apply it for the prediction in the testing set.
+```{r, Partitioning}
+set.seed(1960)
+trainIndex <- createDataPartition(training1$classe, p = 0.70,list=FALSE)
+trainSP <-  training1[trainIndex,]
+testSP  <-  training1[-trainIndex,]
+```
+
+## Machine Learning
+#### Using Random Forest
+Ramdom Forest is tried first as it is one of the best machine learning algorithms. However the caret package is not used as the training time is too long and the amount of resources (memories) is too much for my computer of 2GB RAM. Instead I opted to use the standard randomForest function which is much faster and can accomodate my limited resources. A forest of 400 trees and 4 variables is first teste
+```{r RandomTrees}
+rf <- randomForest(classe~.,data=trainSP,mtry=4,ntree=400)
+confusionMatrix(testSP$classe,predict(rf,testSP))
+```
+The randomForest results gives a 99.4% accuracy when tested on the tuneSP subset. Both sensitivities and specificivities are very high ( > 99%) which means TP and TN are very good.
+
+#### Using Decision Tress (rpart)
+I have also tried to use the Decision Trees algorithm  just to compare the 2 models formed. 
+```{r Decision Trees}
+glmFit <- train(classe~.,method="rpart",data=trainSP)
+confusionMatrix(testSP$classe,predict(glmFit,testSP))
+```
+The results of the Decision Trees algorithm showed only less than 50% accuracy. Somehow the algorithm do not seemed to be able to predict values for "D". 
+
+It is therefore quite clear that RandomForest is a much better algorithm to use. We will refine the algorithm further by tuning on the number of tress and the mtry. This is to balance accuracy and also time required.
+
+#### Plot Error Rate Vs Trees
+The Out of Box (OOB) Error rates are plotted as the number of trees are increased
+```{r Plot Error Rates Vs Trees}
+plot(rf$err.rate[,1], type = "l", lwd = 3, col = "blue",
+     main = "Random Forest: OOB estimate of error rate",
+     xlab = "Number of Trees", ylab = "OOB error rate")
+```
+From the plot above, it is noted that the error rates stabilises from about 100 tress onwards. To be safe and saving time, we will select 200 trees to use
+
+#### Tuning mtry
+We will test the number of mtry to use based on 200 trees
+```{r Looking for the best mtry}
+tuneRF(trainSP[,-53],trainSP$classe,ntreeTry = 200)
+title("Random forest: Tuning the mtry parameter")
+```
+From the plot showned above, it is noted that mtry at 7 gives the lowest error rate. We will use mtry = 7 for our final model. 
+
+#### Important Parameters
+```{r Plot Very Important Variables}
+varImpPlot(rf,main = "Random forest: Variable importance")
+```
+The plot of the important parameters showed the top few parameters which are significant to determining the output. To refine, we can even reduce the parameters to the top ten. However since the amount of time needed to train using the whole dataset, we will not reduce the parameters.
+
+## Final Learning Model
+The Final Model will be trained using RandomForest of 200 trees and 7 variables
+The model will be used to predict the outcome for the predicted file (predictSP)
+```{r Final Model}
+rf <- randomForest(classe~.,data=trainSP,mtry=7,ntree=200)
+confusionMatrix(testSP$classe,predict(rf,testSP))
+predictRES <- predict(rf,predictSP[,-53])
+```
+The confusionMatrix on the test data showed the accuracy to be about the same as the previous model. With the accuracy of more than 99%, it is sufficient for prediction.
+
+## Output results to file
+The results of the prediction will be output the files by the function below.
+```{r Results Output File}
+pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0("problem_id_",i,".txt")
+        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+pml_write_files(predictRES)
+```
+
