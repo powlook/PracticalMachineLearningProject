@@ -7,7 +7,7 @@ output: html_document
 ## Project Overview
 This project looks at the activities of a group of users as they use their wearable devices to perform a set of activities. The purpose of this exercise will be to learn from the activities they have done and therefore to predict what activities they are doing given a set of data. The information about this experiment and dataset are available from the following website : http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
 
-## Data download and Preparatione
+## Data download and Preparation
 The dataset (2 sets) are downloaded from the site as given below.
 They are then read into R as training and testing sets. The structure of both the datasets are also displayed to check for any peculiarities.
 
@@ -58,14 +58,14 @@ testSP  <-  training1[-trainIndex,]
 #### Using Random Forest
 Random Forest is tried first as it is one of the best machine learning algorithms. However the caret package is not used as the training time is too long and the amount of resources (memories) is too much for my computer of 2GB RAM. Instead I opted to use the standard randomForest function which is much faster and can accomodate my limited resources. A forest of 400 trees and 4 variables is first used.
 ```{r RandomTrees}
-rf <- randomForest(classe~.,data=trainSP,mtry=4,ntree=400)
+rf <- randomForest(classe~.,data=trainSP,mtry=4,ntree=400,importance=TRUE)
 confusionMatrix(testSP$classe,predict(rf,testSP))
 ```
 The randomForest results gives a 99.4% accuracy when tested on the tuneSP subset. Both sensitivities and specificivities are very high ( > 99%) which means TP and TN are very good.
 
 #### Using Decision Tress (rpart)
 I have also tried to use the Decision Trees algorithm  just to compare the 2 models formed. 
-```{r Decision Trees}
+```{r Decision Trees, cache=TRUE}
 glmFit <- train(classe~.,method="rpart",data=trainSP)
 confusionMatrix(testSP$classe,predict(glmFit,testSP))
 ```
@@ -84,7 +84,7 @@ From the plot above, it is noted that the error rates stabilises from about 100 
 
 #### Tuning mtry
 We will test the number of mtry to use based on 200 trees
-```{r Looking for the best mtry}
+```{r Looking for the best mtry, cache=TRUE}
 tuneRF(trainSP[,-53],trainSP$classe,ntreeTry = 200)
 title("Random forest: Tuning the mtry parameter")
 ```
@@ -92,7 +92,7 @@ From the plot showned above, it is noted that mtry at 7 gives the lowest error r
 
 #### Important Parameters
 ```{r Plot Very Important Variables}
-varImpPlot(rf,main = "Random forest: Variable importance")
+varImpPlot(rf,main = "Random forest: Variable importance",n.var=15)
 ```
 The plot of the important parameters showed the top few parameters which are significant to determining the output. To refine, we can even reduce the parameters to the top ten. However since the amount of time needed to train using the whole dataset, we will not reduce the parameters.
 
@@ -104,7 +104,7 @@ rf <- randomForest(classe~.,data=trainSP,mtry=7,ntree=200)
 confusionMatrix(testSP$classe,predict(rf,testSP))
 predictRES <- predict(rf,predictSP[,-53])
 ```
-The confusionMatrix on the test data showed the accuracy to be about the same as the previous model. With the accuracy of more than 99%, it is sufficient for prediction.
+The confusionMatrix on the test data showed the accuracy to be about the same as the previous model. With the accuracy of more than 99.4%, Out of Box(OOB) Error is less than 1%. Thus, it is sufficient for prediction.
 
 ## Output results to file
 The results of the prediction will be output the files by the function below.
